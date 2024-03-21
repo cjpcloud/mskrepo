@@ -1,0 +1,299 @@
+root@vtuiopensysubu1:~/ubuntu/ubuntu22.04# cat ubuntu22.04-playbook.yaml
+---
+- name: image builder playbook ubuntu22.04
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    - name: ec2 metadata facts
+      amazon.aws.ec2_metadata_facts:
+
+    - name: create packer directory
+      file:
+        path: /home/ubuntu/packer
+        recurse: no
+        state: directory
+        mode: '0700'
+
+    - name: swappiness
+      ansible.posix.sysctl:
+        name: vm.swappiness
+        state: present
+        value: '10'
+
+    - name: copy ec2-metadata to host
+      copy:
+        src: "{{playbook_dir}}/files/ec2-metadata"
+        dest: "/opt/aws/community/bin/"
+        mode: '0755'
+
+    - name: enable eC2 metadata
+      shell:
+        cmd: update-alternatives --verbose --install /usr/bin/ec2-metadata ec2-metadata /opt/aws/community/bin/ec2-metadata 20000
+
+    - name: install gpg keys
+      rpm_key:
+        key: "{{ item }}"
+        validate_certs: false
+        state: present
+      loop:
+        - https://rhn6.mskcc.org/pub/extra/RPM-GPG-KEY-EPEL-8
+        - https://rhn6.mskcc.org/pub/extra/RPM-GPG-KEY-opensys
+        - https://rhn6.mskcc.org/pub/extra/RPM-GPG-KEY-puppet
+        - https://rhn6.mskcc.org/pub/extra/RPM-GPG-KEY-centrify
+
+          #    - name: install EPEL package
+          #      yum:
+          #        name:  https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+
+          #    - name: enable EPEL
+          #      yum:
+          #        name:
+          #          - epel-release
+
+    - name: update cache
+      shell:
+        cmd: apt-get update -y
+
+    - name: upgrade packages
+      apt:
+        name: '*'
+        state: latest
+
+    - name: reboot
+      reboot:
+        post_reboot_delay: 45
+
+    - name: install packages
+      package:
+        name:
+          - bash-completion
+          - bind9-utils
+          - crudini
+          - expect
+          - gcc
+          - gdisk
+          - libc6
+          - libc6-dev
+          - libc6-i686
+          - jq
+          - linux-headers-$(uname -r)
+          - lsof
+          - mlocate
+          - netcat
+          - snmpd
+          - snmp
+          - net-tools
+          - nfs-common
+          - openssl
+          - libssl-dev
+          - psmisc
+          - python3
+          - python3-pip
+          - tcpdump
+          - tmux
+          - unzip
+          - wget
+          - whois
+          - zip
+          - landscape-client
+        state: latest
+
+
+# Note: this key expires in 2025. See: https://docs.aws.amazon.com/systems-manager/latest/userguide/verify-agent-signature.html
+    - name: copy ssm GPG key to host
+      copy:
+        src: "{{playbook_dir}}/files/amazon-ssm-agent.gpg"
+        dest: "/home/ec2-user/packer/amazon-ssm-agent.gpg"
+        mode: '0644'
+
+    - name: install ssm GPG key
+      rpm_key:
+        key: /home/ec2-user/packer/amazon-ssm-agent.gpg
+        fingerprint: DE92 C7DA 3E56 E923 31D6  2A36 BC1F 495C 97DD 04ED
+
+    - name: install centrify prerequisites
+      apt:
+        name:
+          - libssl-dev
+          - libldap2-dev
+          - libkrb5-dev
+          - libpam0g-dev
+
+    - name: install centrify (yum)
+      yum:
+        name:
+          - CentrifyDC
+          - CentrifyDC-curl
+          - CentrifyDC-openldap
+          - CentrifyDC-openssl
+
+    - name: remove redhat aws package
+      package:
+        name:
+          - rh-amazon-rhui-client*
+        state: absent
+
+    - name: install crowdstrike falcon sensor
+      block:
+        - name: copy falcon rpm
+          copy:
+            src: rpms/falcon8.rpm
+            dest: /home/ubuntu/packer/falcon.rpm
+
+        - name: install falcon rpm
+          yum:
+            name: /home/ubuntu/packer/falcon.rpm
+            state: present
+            disable_gpg_check: yes
+
+        - name: remove falcon rpm
+          file:
+            path: /home/ubuntu/packer/falcon.rpm
+            state: absent
+
+    - name: install ssm
+      community.general.snap:
+        name: amazon-ssm-agent
+        classic: true
+
+    - name: download inspector agent
+      get_url:
+        url: https://inspector-agent.amazonaws.com/linux/latest/install
+        dest: /home/ubuntu/packer/inspector-agent
+        mode: '0755'
+
+    - name: install inspector agent
+      shell: /home/ec2-user/packer/inspector-agent
+
+    - name: download awscli
+      get_url:
+        url: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+        dest: /home/ec2-user/packer/awscli-exe-linux-x86_64.zip
+
+    - name: unpack awscli
+      shell:
+        chdir: /home/ec2-user/packer
+        cmd: unzip awscli-exe-linux-x86_64.zip
+
+    - name: install awscli
+      shell:
+        chdir: /home/ec2-user/packer/aws
+        cmd: ./install
+
+    - name: enable awscli
+      shell:
+        cmd: update-alternatives --verbose --install /usr/bin/aws aws /usr/local/bin/aws 20000
+
+    - name: download cfn helpers
+      get_url:
+        url: https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
+        dest: /home/ec2-user/packer/aws-cfn-bootstrap-py3-latest.tar.gz
+
+    - name: unpack cfn helpers
+      shell:
+        chdir: /home/ec2-user/packer
+        cmd: tar -xzvf aws-cfn-bootstrap-py3-latest.tar.gz
+
+    - name: install cfn helpers
+      shell:
+        chdir: /home/ec2-user/packer
+        cmd: easy_install-3.6 aws-cfn-bootstrap-2.0/
+
+    - name: remove cfn helpers installer
+      file:
+        path: /home/ec2-user/packer/easy_install-3.6 aws-cfn-bootstrap-2.0
+        state: absent
+
+    - name: cfn-hup config dirs
+      file:
+        path: /etc/cfn
+        mode: '0755'
+        state: directory
+
+    - name: cfn-hup hooks dir
+      file:
+        path: /etc/cfn/hooks.d
+        mode: '0755'
+        state: directory
+
+    - name: cfn-hup systemd
+      copy:
+        src: "{{playbook_dir}}/files/cfn-hup.service"
+        dest: "/lib/systemd/system/cfn-hup.service"
+        mode: '0644'
+
+    - name: cfn-hup hooks
+      copy:
+        src: "{{playbook_dir}}/files/cfn-auto-reloader.conf"
+        dest: "/etc/cfn/hooks.d/cfn-auto-reloader.conf"
+        mode: '0600'
+
+    - name: cfn-hup conf
+      copy:
+        src: "{{playbook_dir}}/files/cfn-hup.conf"
+        dest: "/etc/cfn/cfn-hup.conf"
+        mode: '0600'
+
+    - name: cfn-hup disable
+      service:
+        name: cfn-hup
+        enabled: no
+
+    # might have to reload sshd if no workie
+    - name: interactive login
+      replace:
+        path: /etc/ssh/sshd_config
+        regexp: 'PasswordAuthentication no'
+        replace: 'PasswordAuthentication yes'
+
+    - name: disable SELinux
+      selinux:
+        state: disabled
+
+    - name: set timezone to New York
+      timezone:
+        name: America/New_York
+
+    - name: cloud-init-genkeytypes
+      replace:
+        path: /etc/cloud/cloud.cfg
+        regexp: 'ssh_genkeytypes:.*'
+        replace: "ssh_genkeytypes:  ['rsa', 'ecdsa', 'ed25519']"
+
+    - name: apply CIS standards
+      include_role:
+        name: mskcc.base.cis
+
+    - name: truncate logs
+      shell:
+        cmd: "cat /dev/null > {{ item }}"
+      loop:
+        - /var/log/cloud-init.log
+        - /var/log/cloud-init-output.log
+        - /var/log/messages
+
+    - name: cloud-init log
+      file:
+        path: /var/log/cloud-init.log
+        state: touch
+        mode: '0600'
+        owner: root
+        group: root
+        seuser: system_u
+        serole: object_r
+        setype: cloud_log_t
+        selevel: s0
+##
+# Cleanup
+##
+    - name: unregister to sat
+      community.general.redhat_subscription:
+        state: absent
+
+    - name: delete packer directory
+      file:
+        path: /home/ec2-user/packer/
+        state: absent
+
