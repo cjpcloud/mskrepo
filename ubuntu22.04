@@ -165,12 +165,12 @@ root@vtuiopensysubu1:~/ubuntu/ubuntu22.04# cat ubuntu22.04-playbook.yaml
         mode: '0755'
 
     - name: install inspector agent
-      shell: /home/ec2-user/packer/inspector-agent
+      shell: /home/ubuntu/packer/inspector-agent
 
     - name: download awscli
       get_url:
         url: https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
-        dest: /home/ec2-user/packer/awscli-exe-linux-x86_64.zip
+        dest: /home/ubuntu/packer/awscli-exe-linux-x86_64.zip
 
     - name: unpack awscli
       shell:
@@ -179,7 +179,7 @@ root@vtuiopensysubu1:~/ubuntu/ubuntu22.04# cat ubuntu22.04-playbook.yaml
 
     - name: install awscli
       shell:
-        chdir: /home/ec2-user/packer/aws
+        chdir: /home/ubuntu/packer/aws
         cmd: ./install
 
     - name: enable awscli
@@ -189,7 +189,7 @@ root@vtuiopensysubu1:~/ubuntu/ubuntu22.04# cat ubuntu22.04-playbook.yaml
     - name: download cfn helpers
       get_url:
         url: https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
-        dest: /home/ec2-user/packer/aws-cfn-bootstrap-py3-latest.tar.gz
+        dest: /home/ubuntu/packer/aws-cfn-bootstrap-py3-latest.tar.gz
 
     - name: unpack cfn helpers
       shell:
@@ -198,12 +198,12 @@ root@vtuiopensysubu1:~/ubuntu/ubuntu22.04# cat ubuntu22.04-playbook.yaml
 
     - name: install cfn helpers
       shell:
-        chdir: /home/ec2-user/packer
+        chdir: /home/ubuntu/packer
         cmd: easy_install-3.6 aws-cfn-bootstrap-2.0/
 
     - name: remove cfn helpers installer
       file:
-        path: /home/ec2-user/packer/easy_install-3.6 aws-cfn-bootstrap-2.0
+        path: /home/ubuntu/packer/easy_install-3.6 aws-cfn-bootstrap-2.0
         state: absent
 
     - name: cfn-hup config dirs
@@ -248,9 +248,7 @@ root@vtuiopensysubu1:~/ubuntu/ubuntu22.04# cat ubuntu22.04-playbook.yaml
         regexp: 'PasswordAuthentication no'
         replace: 'PasswordAuthentication yes'
 
-    - name: disable SELinux
-      selinux:
-        state: disabled
+   
 
     - name: set timezone to New York
       timezone:
@@ -285,15 +283,5 @@ root@vtuiopensysubu1:~/ubuntu/ubuntu22.04# cat ubuntu22.04-playbook.yaml
         serole: object_r
         setype: cloud_log_t
         selevel: s0
-##
-# Cleanup
-##
-    - name: unregister to sat
-      community.general.redhat_subscription:
-        state: absent
 
-    - name: delete packer directory
-      file:
-        path: /home/ec2-user/packer/
-        state: absent
 
