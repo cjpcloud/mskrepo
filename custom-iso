@@ -1,0 +1,129 @@
+#cloud-config
+autoinstall:
+  version: 1
+  interactive-sections:  # Install groups listed here will wait for user input
+    - network
+  identity:
+    hostname: ubuntu-server
+    username: ubuntu
+    password: "$6$2YlxyC23bDHXdZ3z$fa0b4mZCUwAdW5BTLkH70x63urvpNDtmvnobJe5hOJ0zliK5vDb.tW7GwcKf9YAiMX6YEueOHDHv0vyjkWRM10"
+
+  ssh:
+    install-server: true
+    allow-pw: true
+
+  locale: en_US
+  keyboard:
+    layout: us
+    variant: ''
+
+  packages:
+    - xfsprogs
+
+  storage:
+    config:
+      # Define the disk
+      - {grub_device: true, id: disk-sda, name: '', path: /dev/sda, preserve: false, ptable: gpt, type: disk, wipe: superblock-recursive}
+      # Define partitions
+      - {device: disk-sda, flag: bios_grub, grub_device: false, id: partition-0, number: 1, preserve: false, size: 1048576, type: partition}
+      - {device: disk-sda, flag: '', grub_device: false, id: partition-1, number: 2, preserve: false, size: 2G, type: partition, wipe: superblock}
+      - {fstype: ext4, id: format-0, preserve: false, type: format, volume: partition-1}
+      - {device: disk-sda, flag: '', grub_device: false, id: partition-2, number: 3, preserve: false, size: 1G, type: partition, wipe: superblock}
+      - {fstype: ext4, id: format-1, preserve: false, type: format, volume: partition-2}
+      - {device: disk-sda, flag: '', grub_device: false, id: partition-3, number: 4, preserve: false, size: -1, type: partition, wipe: superblock}
+      - devices:
+          - partition-3
+        id: lvm_volgroup-0
+        name: vg_root
+        preserve: false
+        type: lvm_volgroup
+      # Define LVM partitions with XFS filesystem
+
+#SWAP
+      - {id: lvm_partition-0, name: lv_swap, preserve: false, size: 8G, type: lvm_partition, volgroup: lvm_volgroup-0}
+      - {fstype: swap, id: format-5, preserve: false, type: format, volume: lvm_partition-0}
+
+#root
+      - {id: lvm_partition-1, name: lv_root, preserve: false, size: 4G, type: lvm_partition, volgroup: lvm_volgroup-0}
+      - {fstype: xfs, id: format-6, preserve: false, type: format, volume: lvm_partition-1}
+
+#home
+      - {id: lvm_partition-2, name: lv_home, preserve: false, size: 20G, type: lvm_partition, volgroup: lvm_volgroup-0}
+      - {fstype: xfs, id: format-7, preserve: false, type: format, volume: lvm_partition-2}
+
+#opt
+      - {id: lvm_partition-3, name: lv_opt, preserve: false, size: 8G, type: lvm_partition, volgroup: lvm_volgroup-0}
+      - {fstype: xfs, id: format-8, preserve: false, type: format, volume: lvm_partition-3}
+
+#tmp
+      - {id: lvm_partition-4, name: lv_tmp, preserve: false, size: 8G, type: lvm_partition, volgroup: lvm_volgroup-0}
+      - {fstype: xfs, id: format-9, preserve: false, type: format, volume: lvm_partition-4}
+
+#usr
+      - {id: lvm_partition-5, name: lv_usr, preserve: false, size: 8G, type: lvm_partition, volgroup: lvm_volgroup-0}
+      - {fstype: xfs, id: format-10, preserve: false, type: format, volume: lvm_partition-5}
+
+#var
+      - {id: lvm_partition-6, name: lv_var, preserve: false, size: 10G, type: lvm_partition, volgroup: lvm_volgroup-0}
+      - {fstype: xfs, id: format-11, preserve: false, type: format, volume: lvm_partition-6}
+
+#/var/log
+      - {id: lvm_partition-7, name: lv_var_log, preserve: false, size: 8G, type: lvm_partition, volgroup: lvm_volgroup-0}
+      - {fstype: xfs, id: format-12, preserve: false, type: format, volume: lvm_partition-7}
+
+#/var/log/audit
+      - {id: lvm_partition-8, name: lv_var_log_audit, preserve: false, size: 2G, type: lvm_partition, volgroup: lvm_volgroup-0}
+      - {fstype: xfs, id: format-13, preserve: false, type: format, volume: lvm_partition-8}
+
+#/var/tmp
+      - {id: lvm_partition-9, name: lv_var_tmp, preserve: false, size: 2G, type: lvm_partition, volgroup: lvm_volgroup-0}
+      - {fstype: xfs, id: format-14, preserve: false, type: format, volume: lvm_partition-9}
+
+
+# Mount points
+      - {device: format-0, id: mount-0, path: /boot, type: mount}
+      - {device: format-1, id: mount-1, path: /boot/efi, type: mount}
+      - {device: format-6, id: mount-6, path: /, type: mount}
+      - {device: format-7, id: mount-7, path: /home, type: mount}
+      - {device: format-8, id: mount-8, path: /opt, type: mount}
+      - {device: format-9, id: mount-9, path: /tmp, type: mount}
+      - {device: format-10, id: mount-10, path: /usr, type: mount}
+      - {device: format-11, id: mount-11, path: /var, type: mount}
+      - {device: format-12, id: mount-12, path: /var/log, type: mount}
+      - {device: format-13, id: mount-13, path: /var/log/audit, type: mount}
+      - {device: format-14, id: mount-14, path: /var/tmp, type: mount}
+      - {device: format-5, id: mount-15, path: none, type: mount, swap: true}
+
+  late-commands:
+    - echo 'Replacing /etc/fstab with human-readable format'
+    - cp /etc/fstab /target/etc/fstab.backup
+    - chmod 600 /target/etc/fstab.backup
+    - 'curtin in-target --target=/target -- bash -c "echo \"/dev/sda2 /boot ext4 defaults 0 1\" > /etc/fstab"'
+    - 'curtin in-target --target=/target -- bash -c "echo \"/dev/sda3 /boot/efi ext4 defaults 0 1\" >> /etc/fstab"'
+    - 'curtin in-target --target=/target -- bash -c "echo \"/dev/mapper/vg_root-lv_root / xfs defaults 0 1\" >> /etc/fstab"'
+    - 'curtin in-target --target=/target -- bash -c "echo \"/dev/mapper/vg_root-lv_home /home xfs defaults 0 1\" >> /etc/fstab"'
+    - 'curtin in-target --target=/target -- bash -c "echo \"/dev/mapper/vg_root-lv_opt /opt xfs defaults 0 1\" >> /etc/fstab"'
+    - 'curtin in-target --target=/target -- bash -c "echo \"/dev/mapper/vg_root-lv_tmp /tmp xfs defaults 0 1\" >> /etc/fstab"'
+    - 'curtin in-target --target=/target -- bash -c "echo \"/dev/mapper/vg_root-lv_usr /usr xfs defaults 0 1\" >> /etc/fstab"'
+    - 'curtin in-target --target=/target -- bash -c "echo \"/dev/mapper/vg_root-lv_var /var xfs defaults 0 1\" >> /etc/fstab"'
+    - 'curtin in-target --target=/target -- bash -c "echo \"/dev/mapper/vg_root-lv_var_log /var/log xfs defaults 0 1\" >> /etc/fstab"'
+    - 'curtin in-target --target=/target -- bash -c "echo \"/dev/mapper/vg_root-lv_var_log_audit /var/log/audit xfs defaults 0 1\" >> /etc/fstab"'
+    - 'curtin in-target --target=/target -- bash -c "echo \"/dev/mapper/vg_root-lv_var_tmp /var/tmp xfs defaults 0 1\" >> /etc/fstab"'
+    - 'curtin in-target --target=/target -- bash -c "echo \"/dev/mapper/vg_root-lv_swap none swap sw 0 0\" >> /etc/fstab"'
+    - echo 'Logging /etc/fstab for debugging'
+
+  user-data:
+    runcmd:
+     - echo 'root:$6$2YlxyC23bDHXdZ3z$fa0b4mZCUwAdW5BTLkH70x63urvpNDtmvnobJe5hOJ0zliK5vDb.tW7GwcKf9YAiMX6YEueOHDHv0vyjkWRM10' | sudo chpasswd -e
+     - echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
+     - echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config
+     - sudo mount -o remount /
+     - sudo mount -o remount /home
+     - sudo mount -o remount /opt
+     - sudo mount -o remount /tmp
+     - sudo mount -o remount /usr
+     - sudo mount -o remount /var
+     - sudo mount -o remount /var/log
+     - sudo mount -o remount /var/log/audit
+     - sudo mount -o remount /var/tmp
+     - reboot
