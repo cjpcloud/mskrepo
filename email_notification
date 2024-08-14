@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# Find files older than 76 days
+file_age_76=$(find /root/testing1 -type f -mtime +76)
+
+# Extract the filenames from the list of files found
+user_email_76=`find /root/testing1 -type f -mtime +76 | awk '{print $NF}' $file_age_76`
+
+# Save the list of filenames to a file
+echo -e "$user_email_76\n" > /root/testing1/mail_list
+
+# File containing email addresses
+EMAIL_FILE="/root/testing1/mail_list"
+
+# Define the subject of the email
+SUBJECT="Alert:XBio2 Account Expiration"
+
+#Define the CC recipient
+CC_RECIPIENT="gavvag@mskcc.org"
+
+# Run your data command and capture the output
+Expiry_date=$(date -d "+14 days" +%Y-%m-%d)
+
+# Define the HTML content with the captured data and a hyperlink
+html_body=$(cat <<EOF
+<html>
+<body>
+<p>Dear User,</p>
+
+<p>This is a reminder that your SSH Key is set to expire in 14 days, on $Expiry_date. To ensure uninterrupted access to your Xbio2 Account, please note the following:</p>
+
+<p>&emsp;* Access to XBio2 is granted for a maximum period of 3 months from the account creation date.</p>
+<p>&emsp;* Accounts will be automatically disabled 3 months after creation.</p>
+<p>&emsp;* If you require continued access beyond the initial requested period, please request recertification using the form linked below.</p>
+<p>&emsp;* Alternatively, if you no longer need access to Xbio2, you can request account deactivation through the same process using the form.</p>
+
+
+<p>To request access recertification or account deactivation, please use the form available here:  <a href="https://thespot.mskcc.org/esc?id=sc_cat_item&sys_id=82673d401b0082d09f8ded7b2f4bcbfd">Request Access to Xbio Account</a></p>
+
+<p>For further assistance, please contact us at rts@mskcc.org</p>
+
+<p>Thank you for your attention to this matter.</p>
+
+<br>
+
+<p>Best regards,</p>
+<p>High Performance Computing Team</p>
+</body>
+</html>
+EOF
+)
+
+# Loop through each line in the email file
+while IFS= read -r EMAIL; do
+  if [[ ! -z "$EMAIL" ]]; then  # Ensure the line is not empty
+    echo "$html_body" | sendmail -t <<EOF
+To: $EMAIL
+Cc: $CC_RECIPIENT
+Subject: $SUBJECT
+MIME-Version: 1.0
+Content-Type: text/html
+
+$html_body
+EOF
+    echo "Sent email to: $EMAIL with CC to: $CC_RECIPIENT"
+  fi
+done < "$EMAIL_FILE"
