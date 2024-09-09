@@ -1,0 +1,13 @@
+sudo pro attach C12nJGvkQc4eYSFvfx9nsoo7Syge6D
+
+sudo pro status --all
+
+sudo pro enable usg
+
+sudo apt install ubuntu-advantage-tools -y
+
+sudo ua enable usg
+
+sudo apt install usg -y
+
+  usg audit --tailoring tailor.xml
