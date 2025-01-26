@@ -1,4 +1,6 @@
 #!/bin/bash
+
+# List files in /root/ganesh/user and filter the filenames (excluding hidden files)
 ls -a /root/ganesh/user | awk '{print $NF}' | grep -v '^\.' > /root/ganesh/userlist
 
 # Input user list file
@@ -10,8 +12,8 @@ OUTPUT_FILE="/root/ganesh/user_info.txt"
 # Clear the output file before writing new data (ensure it exists)
 > "$OUTPUT_FILE"
 
-# Write a header to the output file
-echo "Username,Full Name,Expiration Date" > "$OUTPUT_FILE"
+# Write a header to the output file with two tab spaces between columns
+echo -e "Username\t\tFull Name\t\tExpiration Date" > "$OUTPUT_FILE"
 
 # Loop through each username in the userlist file
 while IFS= read -r username; do
@@ -34,21 +36,18 @@ while IFS= read -r username; do
         exp_date="No Expiry Date Set"
     fi
 
-    # Write the username, full name, and expiration date to the output file
-    echo "$username,$full_name,$exp_date" >> "$OUTPUT_FILE"
+    # Write the username, full name, and expiration date to the output file with two tab spaces
+    echo -e "$username\t\t$full_name\t\t$exp_date" >> "$OUTPUT_FILE"
 
     # Optionally, print the details to the console for debugging
-    echo "Username: $username, Full Name: $full_name, Expiration Date: $exp_date"
+    echo -e "Username: $username\t\tFull Name: $full_name\t\tExpiration Date: $exp_date"
 done < "$USER_LIST_FILE"
 
-#echo "User information has been saved to $OUTPUT_FILE."
-
-# Send the output file as an email attachment
-# Define email subject and recipient
+# Send the output file as an email body
 EMAIL_SUBJECT="Xbio user report"
 EMAIL_RECIPIENT="mbheemavarapu10@gmail.com"
 
 # Sending the Email Body Instead of Attachment:
 mail -s "$EMAIL_SUBJECT" "$EMAIL_RECIPIENT" < "$OUTPUT_FILE"
 
-echo "Email has been sent to $EMAIL_RECIPIENT with the user information attached."
+echo "Email has been sent to $EMAIL_RECIPIENT with the user information."
