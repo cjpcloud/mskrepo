@@ -1,0 +1,54 @@
+#!/bin/bash
+ls -a /root/ganesh/user | awk '{print $NF}' | grep -v '^\.' > /root/ganesh/userlist
+
+# Input user list file
+USER_LIST_FILE="/root/ganesh/userlist"
+
+# Output file where the user information will be saved
+OUTPUT_FILE="/root/ganesh/user_info.txt"
+
+# Clear the output file before writing new data (ensure it exists)
+> "$OUTPUT_FILE"
+
+# Write a header to the output file
+echo "Username,Full Name,Expiration Date" > "$OUTPUT_FILE"
+
+# Loop through each username in the userlist file
+while IFS= read -r username; do
+    # Skip empty lines or comments (if any)
+    if [ -z "$username" ] || [[ "$username" == \#* ]]; then
+        continue
+    fi
+
+    # Fetch the full name from /etc/passwd
+    full_name=$(getent passwd "$username" | awk -F: '{print $6}')
+
+    # Fetch the account expiration date using chage
+    exp_date=$(chage -l "$username" | grep "Account expires" | cut -d: -f2 | xargs)
+
+    # If full name or expiration date is not found, handle missing values
+    if [ -z "$full_name" ]; then
+        full_name="Not Found"
+    fi
+    if [ -z "$exp_date" ]; then
+        exp_date="No Expiry Date Set"
+    fi
+
+    # Write the username, full name, and expiration date to the output file
+    echo "$username,$full_name,$exp_date" >> "$OUTPUT_FILE"
+
+    # Optionally, print the details to the console for debugging
+    echo "Username: $username, Full Name: $full_name, Expiration Date: $exp_date"
+done < "$USER_LIST_FILE"
+
+#echo "User information has been saved to $OUTPUT_FILE."
+
+# Send the output file as an email attachment
+# Define email subject and recipient
+EMAIL_SUBJECT="Xbio user report"
+EMAIL_RECIPIENT="mbheemavarapu10@gmail.com"
+
+# Sending the Email Body Instead of Attachment:
+mail -s "$EMAIL_SUBJECT" "$EMAIL_RECIPIENT" < "$OUTPUT_FILE"
+
+echo "Email has been sent to $EMAIL_RECIPIENT with the user information attached."
