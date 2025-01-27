@@ -1,7 +1,7 @@
 
 #!/bin/bash
 
-# Find files older than 76 days
+# Find files older than 75 days
 file_age_75=$(find /root/ganesh -type f -mtime +75)
 
 # Extract the filenames from the list of files found
