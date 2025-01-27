@@ -9,16 +9,19 @@ USER_LIST_FILE="/root/ganesh/userlist"
 # Output file where the user information will be saved
 OUTPUT_FILE="/root/ganesh/user_info.txt"
 
+# List of users to exclude (space-separated)
+EXCLUDE_USERS=("user2" "user3" "user4")
+
 # Clear the output file before writing new data (ensure it exists)
 > "$OUTPUT_FILE"
 
-# Write a header to the output file with two tab spaces between columns
-echo -e "Username\t\tFull Name\t\tExpiration Date" > "$OUTPUT_FILE"
+# Write a header to the output file with consistent spacing
+printf "%-20s %-30s %-30s\n" "Username" "Full Name" "Expiration Date" > "$OUTPUT_FILE"
 
 # Loop through each username in the userlist file
 while IFS= read -r username; do
-    # Skip empty lines or comments (if any)
-    if [ -z "$username" ] || [[ "$username" == \#* ]]; then
+    # Skip empty lines, comments, or users in the exclusion list
+    if [ -z "$username" ] || [[ "$username" == \#* ]] || [[ " ${EXCLUDE_USERS[@]} " =~ " $username " ]]; then
         continue
     fi
 
@@ -26,7 +29,7 @@ while IFS= read -r username; do
     full_name=$(getent passwd "$username" | awk -F: '{print $6}')
 
     # Fetch the account expiration date using chage
-    exp_date=$(chage -l "$username" | grep "Account expires" | cut -d: -f2 | xargs)
+    exp_date=$(date -d "$(stat --format='%y' user1) +90 days")
 
     # If full name or expiration date is not found, handle missing values
     if [ -z "$full_name" ]; then
@@ -36,11 +39,11 @@ while IFS= read -r username; do
         exp_date="No Expiry Date Set"
     fi
 
-    # Write the username, full name, and expiration date to the output file with two tab spaces
-    echo -e "$username\t\t$full_name\t\t$exp_date" >> "$OUTPUT_FILE"
+    # Write the username, full name, and expiration date to the output file with consistent spacing
+    printf "%-20s %-30s %-30s\n" "$username" "$full_name" "$exp_date" >> "$OUTPUT_FILE"
 
     # Optionally, print the details to the console for debugging
-    echo -e "Username: $username\t\tFull Name: $full_name\t\tExpiration Date: $exp_date"
+    printf "Username: %-15s Full Name: %-25s Expiration Date: %-25s\n" "$username" "$full_name" "$exp_date"
 done < "$USER_LIST_FILE"
 
 # Send the output file as an email body
