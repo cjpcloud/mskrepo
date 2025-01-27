@@ -1,10 +1,11 @@
+
 #!/bin/bash
 
 # Find files older than 76 days
 file_age_75=$(find /root/ganesh -type f -mtime +75)
 
 # Extract the filenames from the list of files found
-user_email_75=`find /root/ganesh -type f -mtime +75 | awk '{print $NF}' $file_age_75`
+user_email_75=$(find /root/ganesh -type f -mtime +75 | awk '{print $NF}' $file_age_75)
 
 # Save the list of filenames to a file
 echo -e "$user_email_75\n" > /root/ganesh/mail_list
@@ -13,11 +14,11 @@ echo -e "$user_email_75\n" > /root/ganesh/mail_list
 EMAIL_FILE="/root/ganesh/mail_list"
 
 # Define the subject of the email
-SUBJECT="Alert:XBio2 Account Expiration"
+SUBJECT="Alert: XBio2 Account Expiration"
 
-#Define the CC recipient
-#CC_RECIPIENT="gavvag@mskcc.org"
+# Define the CC recipient
 CC_RECIPIENT="mbheemavarapu10@gmail.com"
+
 # Run your data command and capture the output
 Expiry_date=$(date -d "+14 days" +%Y-%m-%d)
 
@@ -33,7 +34,6 @@ html_body=$(cat <<EOF
 <p>&emsp;* Accounts will be automatically disabled 3 months after creation.</p>
 <p>&emsp;* If you require continued access beyond the initial requested period, please request recertification using the form linked below.</p>
 <p>&emsp;* Alternatively, if you no longer need access to Xbio2, you can request account deactivation through the same process using the form.</p>
-
 
 <p>To request access recertification or account deactivation, please use the form available here:  <a href="https://thespot.mskcc.org/esc?id=sc_cat_item&sys_id=82673d401b0082d09f8ded7b2f4bcbfd">Request Access to Xbio Account</a></p>
 
@@ -52,7 +52,7 @@ EOF
 
 # Loop through each line in the email file
 while IFS= read -r EMAIL; do
-  if [[ ! -z "$EMAIL" ]]; then  # Ensure the line is not empty
+  if [[ ! -z "$EMAIL" ]] && [[ "$EMAIL" != "mbheemavarapu101@gmail.com" ]] && [[ "$EMAIL" != "mbheemavarapu102@gmail.com" ]]; then  # Ensure the line is not empty and email is not user2 or user3's
     echo "$html_body" | sendmail -t <<EOF
 To: $EMAIL
 Cc: $CC_RECIPIENT
