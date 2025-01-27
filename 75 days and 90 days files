@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # Find files older than 76 days
-file_age_75=$(find /root/ganesh -type f -mtime +75)
+file_age_75=$(find /root/ganesh -type f -mtime 75)
 
 # Extract the filenames from the list of files found
-user_email_75=`find /root/ganesh -type f -mtime +75 | awk '{print $NF}' $file_age_75`
+user_email_75=`find /root/ganesh -type f -mtime 75 | awk '{print $NF}' $file_age_75`
 
 # Save the list of filenames to a file
 echo -e "$user_email_75\n" > /root/ganesh/mail_list
