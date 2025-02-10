@@ -1,0 +1,81 @@
+#!/bin/bash
+
+# Define paths
+USER_LIST_FILE="/root/ganesh/userlist"
+OUTPUT_FILE="/root/ganesh/user_info.txt"
+USER_DIR="/root/ganesh/user"
+
+# List files in the user directory (excluding hidden files) and save to userlist
+ls -A "$USER_DIR" > "$USER_LIST_FILE"
+
+# List of users to exclude (space-separated)
+EXCLUDE_USERS=("user6" "user5" "user4")
+
+# Clear the output file before writing new data
+> "$OUTPUT_FILE"
+
+# Print table header with proper alignment
+printf "%-15s | %-30s | %-15s | %-15s\n" "Username" "Full Name" "Creation Date" "Expiration Date" > "$OUTPUT_FILE"
+printf "%s\n" "-----------------------------------------------------------------------------------------" >> "$OUTPUT_FILE"
+
+# Get creation dates of all files in the user directory
+declare -A creation_dates
+while read -r line; do
+    file_creation_date=$(stat -c %W "$USER_DIR/$line")
+    if [ "$file_creation_date" -gt 0 ]; then
+        creation_dates["$line"]=$(date -d "@$file_creation_date" +"%Y-%m-%d")
+    else
+        creation_dates["$line"]="N/A"
+    fi
+done < <(ls -A "$USER_DIR")
+
+# Loop through each username in the userlist file
+while IFS= read -r username; do
+    # Skip empty lines, comments, or excluded users
+    if [ -z "$username" ] || [[ "$username" == \#* ]] || [[ " ${EXCLUDE_USERS[@]} " =~ " $username " ]]; then
+        continue
+    fi
+
+    # Fetch the full name from /etc/passwd and truncate if too long
+    full_name=$(getent passwd "$username" | awk -F: '{print $5}')
+    full_name=${full_name:-"Not Found"}  # Default if empty
+    full_name=$(echo "$full_name" | cut -c1-30)  # Limit to 30 characters
+
+    # Get creation date from stored associative array
+    creation_date="${creation_dates[$username]:-N/A}"
+
+    # Calculate expiration date (90 days after creation), handle missing cases
+    if [[ "$creation_date" != "N/A" ]]; then
+        exp_date=$(date -d "$creation_date +90 days" +"%Y-%m-%d")
+    else
+        exp_date="No Expiry"
+    fi
+
+    # Write user info to the output file with consistent spacing
+    printf "%-15s | %-30s | %-15s | %-15s\n" "$username" "$full_name" "$creation_date" "$exp_date" >> "$OUTPUT_FILE"
+
+    # Print details to console (optional for debugging)
+    printf "Username: %-15s | Full Name: %-30s | Creation Date: %-15s | Expiration Date: %-15s\n" \
+        "$username" "$full_name" "$creation_date" "$exp_date"
+
+done < "$USER_LIST_FILE"
+
+# Send the output file as an email body
+EMAIL_SUBJECT="Xbio User Report"
+EMAIL_RECIPIENT="mbheemavarapu10@gmail.com"
+
+# Send the email with proper formatting
+# method-1
+#mail -s "$EMAIL_SUBJECT" -a "$OUTPUT_FILE" "$EMAIL_RECIPIENT" < /dev/null
+
+# method-2
+#column -t -s '|' "$OUTPUT_FILE" > /root/ganesh/formatted_user_info.txt
+#mail -s "$EMAIL_SUBJECT" "$EMAIL_RECIPIENT" < "/root/ganesh/formatted_user_info.txt"
+
+#method-3
+#mail -s "$EMAIL_SUBJECT" "$EMAIL_RECIPIENT" < "$OUTPUT_FILE"
+
+#method-4
+cat "$OUTPUT_FILE" | mail -s "$EMAIL_SUBJECT" "$EMAIL_RECIPIENT"
+
+echo "Email has been sent to $EMAIL_RECIPIENT with the user information."
